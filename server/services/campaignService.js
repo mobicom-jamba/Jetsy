@@ -90,6 +90,22 @@ class CampaignService {
       throw new Error("Budget must be between $1 and $999,999");
     }
   }
+
+  async updateCampaignStatus(campaignId, status, userId) {
+    const campaign = await Campaign.findOne({
+      where: { id: campaignId, userId },
+      include: [{ model: MetaAccount }],
+    });
+    if (!campaign) throw new Error("Campaign not found");
+
+    const accessToken = campaign.MetaAccount?.accessToken;
+    if (!accessToken) throw new Error("Missing Meta access token");
+    const api = new MetaApiClient(accessToken);
+    await api.updateCampaignStatus(campaign.metaCampaignId, status);
+
+    await campaign.update({ status });
+    return campaign;
+  }
 }
 
 module.exports = CampaignService;

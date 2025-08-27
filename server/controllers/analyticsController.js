@@ -3,11 +3,9 @@ const AnalyticsService = require("../services/analyticsService");
 const logger = require("../utils/logger");
 
 class AnalyticsController {
-  constructor() {
-    this.analyticsService = new AnalyticsService();
-  }
+  analyticsService = new AnalyticsService();
 
-  async getMetrics(req, res) {
+  getMetrics = async (req, res) => {
     try {
       const metrics = await this.analyticsService.getMetricsData(req.query);
       res.json({ metrics });
@@ -15,13 +13,12 @@ class AnalyticsController {
       logger.error("Get metrics error:", error);
       res.status(500).json({ error: "Failed to fetch metrics" });
     }
-  }
+  };
 
-  async syncMetrics(req, res) {
+  syncMetrics = async (req, res) => {
     try {
       const { campaignId } = req.params;
-      const dateRange = req.body.dateRange || {};
-
+      const dateRange = req.body?.dateRange || {};
       const metrics = await this.analyticsService.syncCampaignMetrics(
         campaignId,
         dateRange
@@ -31,7 +28,7 @@ class AnalyticsController {
       logger.error("Sync metrics error:", error);
       res.status(500).json({ error: "Failed to sync metrics" });
     }
-  }
+  };
 }
 
 module.exports = new AnalyticsController();

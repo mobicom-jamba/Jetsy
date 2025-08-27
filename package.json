@@ -2,10 +2,9 @@
   "name": "jetsy-meta-ads",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently \"yarn server:dev\" \"yarn client:dev\"",
+    "dev": "yarn server:dev",
     "server:dev": "cd server && nodemon index.js",
-    "client:dev": "cd client && yarn dev",
-    "build": "cd client && yarn build",
+    "build": "cd server && yarn build",
     "start": "cd server && node index.js",
     "db:migrate": "cd server && sequelize-cli db:migrate"
   },
@@ -19,6 +18,7 @@
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
+    "path-to-regexp": "^6.2.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "pg": "^8.16.3",
@@ -28,7 +28,6 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.0",
     "nodemon": "^3.1.10",
     "sequelize-cli": "^6.6.3"
   }

@@ -41,7 +41,11 @@ class MetaApiClient {
   }
 
   async createCampaign(accountId, campaignData) {
-    const response = await this.client.post(`/${accountId}/campaigns`, {
+    const node = String(accountId).startsWith("act_")
+      ? accountId
+      : `act_${accountId}`;
+
+    const payload = {
       name: campaignData.name,
       objective: campaignData.objective,
       status: campaignData.status || "PAUSED",
@@ -49,8 +53,10 @@ class MetaApiClient {
       ...(campaignData.budget && {
         daily_budget: Math.round(campaignData.budget * 100),
       }),
-    });
-    return response.data;
+    };
+
+    const res = await this.client.post(`/${node}/campaigns`, payload);
+    return res.data;
   }
 
   async getCampaignInsights(campaignId, dateRange = {}) {
