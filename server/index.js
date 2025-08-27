@@ -15,6 +15,8 @@ app.use(
   })
 );
 
+app.get("/health", (_, res) => res.send("ok"));
+
 // Other middleware
 app.use(
   helmet({
