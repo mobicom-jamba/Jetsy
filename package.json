@@ -1,10 +1,11 @@
 {
   "name": "jetsy-meta-ads",
   "version": "1.0.0",
+  "license": "MIT",
   "scripts": {
     "dev": "yarn server:dev",
     "server:dev": "cd server && nodemon index.js",
-    "build": "cd server && yarn build",
+    "build": "echo \"No build step (plain JS server)\"",
     "start": "cd server && node index.js",
     "db:migrate": "cd server && sequelize-cli db:migrate"
   },
@@ -15,12 +16,11 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
-    "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
-    "path-to-regexp": "^6.2.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "path-to-regexp": "^6.2.1",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "rate-limiter-flexible": "^7.2.0",
