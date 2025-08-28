@@ -8,6 +8,7 @@ module.exports = {
     host: process.env.DB_HOST || "localhost",
     port: process.env.DB_PORT || 5432,
     dialect: "postgres",
+    logging: console.log,
   },
   production: {
     use_env_variable: "DATABASE_URL",
@@ -18,5 +19,6 @@ module.exports = {
         rejectUnauthorized: false,
       },
     },
+    logging: false,
   },
 };

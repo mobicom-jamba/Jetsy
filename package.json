@@ -3,33 +3,31 @@
   "version": "1.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "yarn server:dev",
-    "server:dev": "cd server && nodemon index.js",
-    "start": "cd server && node index.js",
-    "build": "cd server && npm run migrate",
-    "db:migrate": "cd server && sequelize-cli db:migrate"
+    "start": "npm run migrate && node index.js",
+    "dev": "nodemon index.js",
+    "build": "echo 'Build completed'",
+    "migrate": "npx sequelize-cli db:migrate"
   },
   "dependencies": {
-    "axios": "^1.11.0",
-    "bcryptjs": "^3.0.2",
+    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
-    "express": "^5.1.0",
-    "helmet": "^8.1.0",
-    "joi": "^17",
+    "helmet": "^7.0.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.1",
-    "multer": "^2.0.2",
-    "node-cron": "^4.2.1",
-    "path-to-regexp": "^6.2.1",
-    "pg": "^8.16.3",
+    "bcryptjs": "^2.4.3",
+    "axios": "^1.5.0",
+    "sequelize": "^6.32.1",
+    "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
-    "rate-limiter-flexible": "^7.2.0",
-    "sequelize": "^6.37.7",
-    "winston": "^3.17.0"
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.2",
+    "winston": "^3.10.0",
+    "joi": "^17.9.2",
+    "rate-limiter-flexible": "^2.4.2",
+    "sequelize-cli": "^6.6.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "sequelize-cli": "^6.6.3"
+    "nodemon": "^3.0.1"
   }
 }
