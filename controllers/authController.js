@@ -1,5 +1,6 @@
+// server/controllers/authController.js (UPDATED)
 const jwt = require("jsonwebtoken");
-const { User, MetaAccount } = require("../models");
+const { User, MetaApp, MetaAccount } = require("../models");
 const OAuthService = require("../services/oauthService");
 const logger = require("../utils/logger");
 
@@ -64,13 +65,22 @@ class AuthController {
 
   async getMetaAuthUrl(req, res) {
     try {
+      const { metaAppId } = req.query;
+
+      if (!metaAppId) {
+        return res.status(400).json({ error: "Meta app ID is required" });
+      }
+
       const oauthService = new OAuthService();
-      const authUrl = oauthService.generateMetaAuthUrl(req.user.id);
+      const authUrl = await oauthService.generateMetaAuthUrl(
+        req.user.id,
+        metaAppId
+      );
 
       res.json({ authUrl });
     } catch (error) {
       logger.error("Meta auth URL generation error:", error);
-      res.status(500).json({ error: "Failed to generate auth URL" });
+      res.status(500).json({ error: error.message });
     }
   }
 
@@ -84,8 +94,9 @@ class AuthController {
         );
       }
 
-      const [, userId] = state.split(":");
-      if (!userId) {
+      const [, userId, metaAppId] = state.split(":");
+
+      if (!userId || !metaAppId) {
         return res.redirect(
           `${process.env.CLIENT_URL}/dashboard?error=invalid_state`
         );
@@ -93,34 +104,32 @@ class AuthController {
 
       const oauthService = new OAuthService();
 
-      const tokenData = await oauthService.exchangeCodeForToken(code);
+      const tokenData = await oauthService.exchangeCodeForToken(
+        code,
+        metaAppId,
+        userId
+      );
       const longLivedToken = await oauthService.getLongLivedToken(
-        tokenData.access_token
+        tokenData.access_token,
+        metaAppId,
+        userId
       );
       const adAccounts = await oauthService.getAdAccounts(
         longLivedToken.access_token
       );
 
       for (const account of adAccounts) {
-        await MetaAccount.findOrCreate({
-          where: { userId, accountId: account.account_id },
-          defaults: {
-            userId,
-            accountId: account.account_id,
-            accountName: account.name,
-            accessToken: longLivedToken.access_token,
-            tokenExpiresAt: longLivedToken.expires_in
-              ? new Date(Date.now() + longLivedToken.expires_in * 1000)
-              : null,
-            accountStatus: account.account_status,
-            currency: account.currency,
-            timezone: account.timezone_name,
-            businessId: account.business?.id,
-          },
-        });
+        await oauthService.saveMetaAccount(
+          userId,
+          metaAppId,
+          longLivedToken,
+          account
+        );
       }
 
-      res.redirect(`${process.env.CLIENT_URL}/dashboard?connected=true`);
+      res.redirect(
+        `${process.env.CLIENT_URL}/dashboard?connected=true&accounts=${adAccounts.length}`
+      );
     } catch (error) {
       logger.error("Meta callback error:", error);
       res.redirect(
@@ -132,11 +141,19 @@ class AuthController {
   async me(req, res) {
     try {
       const user = await User.findByPk(req.user.id, {
-        attributes: ["id", "email", "name", "avatar"],
+        attributes: ["id", "email", "name", "avatar", "createdAt"],
         include: [
+          {
+            model: MetaApp,
+            attributes: ["id", "appName", "isVerified", "createdAt"],
+            where: { isActive: true },
+            required: false,
+          },
           {
             model: MetaAccount,
             attributes: ["id", "accountName", "currency", "accountStatus"],
+            where: { isActive: true },
+            required: false,
           },
         ],
       });

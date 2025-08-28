@@ -11,12 +11,15 @@ class Helpers {
     return "jma_" + crypto.randomBytes(32).toString("hex");
   }
 
-  static encrypt(text, key = process.env.ENCRYPTION_KEY) {
-    if (!key) {
-      throw new Error("Encryption key not provided");
+  // Encryption for storing sensitive data like app secrets
+  static encrypt(text) {
+    const algorithm = "aes-256-cbc";
+    const key = process.env.ENCRYPTION_KEY;
+
+    if (!key || key.length !== 32) {
+      throw new Error("ENCRYPTION_KEY must be exactly 32 characters long");
     }
 
-    const algorithm = "aes-256-cbc";
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipher(algorithm, key);
 
@@ -26,12 +29,14 @@ class Helpers {
     return iv.toString("hex") + ":" + encrypted;
   }
 
-  static decrypt(encryptedText, key = process.env.ENCRYPTION_KEY) {
+  static decrypt(encryptedText) {
+    const algorithm = "aes-256-cbc";
+    const key = process.env.ENCRYPTION_KEY;
+
     if (!key) {
-      throw new Error("Encryption key not provided");
+      throw new Error("ENCRYPTION_KEY not found");
     }
 
-    const algorithm = "aes-256-cbc";
     const parts = encryptedText.split(":");
     const iv = Buffer.from(parts.shift(), "hex");
     const encrypted = parts.join(":");
@@ -51,6 +56,18 @@ class Helpers {
       .replace(/javascript:/gi, "")
       .replace(/on\w+=/gi, "")
       .trim();
+  }
+
+  static validateMetaAppId(appId) {
+    // Meta App IDs are typically 15-16 digit numbers
+    const appIdRegex = /^\d{15,16}$/;
+    return appIdRegex.test(appId);
+  }
+
+  static validateMetaAppSecret(secret) {
+    // Meta App Secrets are 32-character hex strings
+    const secretRegex = /^[a-f0-9]{32}$/;
+    return secretRegex.test(secret);
   }
 
   static formatMetaError(error) {

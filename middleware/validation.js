@@ -1,4 +1,4 @@
-// server/middleware/validation.js
+// server/middleware/validation.js (UPDATED with new schemas)
 const joi = require("joi");
 const logger = require("../utils/logger");
 
@@ -12,6 +12,31 @@ const schemas = {
   login: joi.object({
     email: joi.string().email().required(),
     password: joi.string().required(),
+  }),
+
+  createMetaApp: joi.object({
+    appId: joi.string().required().messages({
+      "string.empty": "Meta App ID is required",
+      "any.required": "Meta App ID is required",
+    }),
+    appSecret: joi.string().required().messages({
+      "string.empty": "Meta App Secret is required",
+      "any.required": "Meta App Secret is required",
+    }),
+    appName: joi.string().min(1).max(100).required().messages({
+      "string.empty": "App name is required",
+      "string.min": "App name must be at least 1 character",
+      "string.max": "App name must be less than 100 characters",
+    }),
+    webhookUrl: joi.string().uri().optional().messages({
+      "string.uri": "Webhook URL must be a valid URL",
+    }),
+  }),
+
+  updateMetaApp: joi.object({
+    appName: joi.string().min(1).max(100).optional(),
+    appSecret: joi.string().optional(),
+    webhookUrl: joi.string().uri().allow("").optional(),
   }),
 
   createCampaign: joi.object({
@@ -57,12 +82,14 @@ const schemas = {
 
 const validate = (schema) => {
   return (req, res, next) => {
-    const { error } = schema.validate(req.body);
+    const { error } = schema.validate(req.body, {
+      abortEarly: false,
+    });
 
     if (error) {
       logger.warn("Validation error:", {
         path: req.path,
-        error: error.details[0].message,
+        errors: error.details.map((d) => d.message),
         body: req.body,
       });
 
@@ -81,12 +108,14 @@ const validate = (schema) => {
 
 const validateQuery = (schema) => {
   return (req, res, next) => {
-    const { error } = schema.validate(req.query);
+    const { error } = schema.validate(req.query, {
+      abortEarly: false,
+    });
 
     if (error) {
       logger.warn("Query validation error:", {
         path: req.path,
-        error: error.details[0].message,
+        errors: error.details.map((d) => d.message),
         query: req.query,
       });
 
