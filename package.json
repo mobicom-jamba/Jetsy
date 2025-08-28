@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "yarn server:dev",
     "server:dev": "cd server && nodemon index.js",
-    "build": "echo \"No build step (plain JS server)\"",
     "start": "cd server && node index.js",
+    "build": "cd server && npm run migrate",
     "db:migrate": "cd server && sequelize-cli db:migrate"
   },
   "dependencies": {
