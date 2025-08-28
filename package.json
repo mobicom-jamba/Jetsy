@@ -1,11 +1,12 @@
 {
   "name": "jetsy-meta-ads",
   "version": "1.0.0",
-  "license": "MIT",
+  "description": "Meta Ads integration platform",
+  "main": "index.js",
   "scripts": {
-    "start": "npm run migrate && node index.js",
+    "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "echo 'Build completed'",
+    "build": "echo 'No build step required'",
     "migrate": "npx sequelize-cli db:migrate"
   },
   "dependencies": {
@@ -20,7 +21,7 @@
     "sequelize": "^6.32.1",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^1.4.5",
     "node-cron": "^3.0.2",
     "winston": "^3.10.0",
     "joi": "^17.9.2",
@@ -29,5 +30,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

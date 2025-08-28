@@ -2,13 +2,12 @@ require("dotenv").config();
 
 module.exports = {
   development: {
-    username: process.env.DB_USER || "username",
-    password: process.env.DB_PASS || "password",
-    database: process.env.DB_NAME || "jetsy_meta_ads_dev",
-    host: process.env.DB_HOST || "localhost",
+    username: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME,
+    host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
     dialect: "postgres",
-    logging: console.log,
   },
   production: {
     use_env_variable: "DATABASE_URL",
