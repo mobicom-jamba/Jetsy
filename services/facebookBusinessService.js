@@ -25,7 +25,11 @@ class FacebookBusinessService {
         response_type: "code",
       });
 
-      console.log("params.toString: ---------------> ", params.toString());
+      logger.info("Generated Facebook OAuth URL", {
+        params: params.toString(),
+        redirectUri: FB.REDIRECT_URI,
+        configId: FB.CONFIG_ID,
+      });
 
       return `https://www.facebook.com/dialog/oauth?${params.toString()}`;
     } catch (error) {
@@ -40,13 +44,24 @@ class FacebookBusinessService {
         throw new Error("Meta APP_ID / APP_SECRET not configured");
       }
 
-      // Decode & validate state
+      logger.info("Processing Facebook callback", {
+        codeLength: code?.length,
+        stateLength: state?.length,
+      });
+
       let stateData;
       try {
         stateData = JSON.parse(Buffer.from(state, "base64").toString());
-      } catch {
+        logger.info("Decoded state data", {
+          userId: stateData.userId,
+          timestamp: stateData.timestamp,
+          age: Date.now() - Number(stateData.timestamp),
+        });
+      } catch (decodeError) {
+        logger.error("State decode error:", decodeError);
         throw new Error("Invalid OAuth state");
       }
+
       const { userId, timestamp } = stateData || {};
       if (!userId) throw new Error("Missing OAuth state fields");
       if (Date.now() - Number(timestamp) > 300000) {
@@ -54,20 +69,29 @@ class FacebookBusinessService {
       }
 
       // Exchange short-lived token
+      logger.info("Exchanging code for access token");
       const tokenRes = await axios.get(
         "https://graph.facebook.com/v18.0/oauth/access_token",
         {
           params: {
             client_id: FB.APP_ID,
-            client_secret: FB.APP_SECRET, // already secret, no need to decrypt
+            client_secret: FB.APP_SECRET,
             redirect_uri: FB.REDIRECT_URI,
             code,
           },
         }
       );
+
+      if (!tokenRes.data.access_token) {
+        logger.error("No access token in response", tokenRes.data);
+        throw new Error("Failed to obtain access token");
+      }
+
       const { access_token } = tokenRes.data;
+      logger.info("Successfully obtained short-lived token");
 
       // Exchange for long-lived token
+      logger.info("Exchanging for long-lived token");
       const longRes = await axios.get(
         "https://graph.facebook.com/v18.0/oauth/access_token",
         {
@@ -79,22 +103,55 @@ class FacebookBusinessService {
           },
         }
       );
+
+      if (!longRes.data.access_token) {
+        logger.error("No long-lived token in response", longRes.data);
+        throw new Error("Failed to obtain long-lived token");
+      }
+
       const longLivedToken = longRes.data.access_token;
+      logger.info("Successfully obtained long-lived token");
 
       // Fetch resources
-      const [pages, adAccounts] = await Promise.all([
+      logger.info("Fetching user resources");
+      const [pages, adAccounts] = await Promise.allSettled([
         this.getUserPages(longLivedToken),
         this.getUserAdAccounts(longLivedToken),
       ]);
 
+      const pagesResult = pages.status === "fulfilled" ? pages.value : [];
+      const adAccountsResult =
+        adAccounts.status === "fulfilled" ? adAccounts.value : [];
+
+      if (pages.status === "rejected") {
+        logger.warn("Failed to fetch pages:", pages.reason);
+      }
+      if (adAccounts.status === "rejected") {
+        logger.warn("Failed to fetch ad accounts:", adAccounts.reason);
+      }
+
+      logger.info("Resources fetched", {
+        pagesCount: pagesResult.length,
+        adAccountsCount: adAccountsResult.length,
+      });
+
       // Persist; use a single MetaApp row if provided
       const metaAppId = FB.META_APP_DB_ID || null;
-      const savedPages = await this.saveUserPages(userId, metaAppId, pages);
+      const savedPages = await this.saveUserPages(
+        userId,
+        metaAppId,
+        pagesResult
+      );
       const savedAccounts = await this.saveUserAdAccounts(
         userId,
         metaAppId,
-        adAccounts
+        adAccountsResult
       );
+
+      logger.info("Successfully saved user data", {
+        savedPagesCount: savedPages.length,
+        savedAccountsCount: savedAccounts.length,
+      });
 
       return {
         pages: savedPages,
@@ -102,13 +159,18 @@ class FacebookBusinessService {
         accessToken: longLivedToken,
       };
     } catch (error) {
-      logger.error("Business Config callback handling failed:", error);
+      logger.error("Business Config callback handling failed:", {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data,
+      });
       throw error;
     }
   };
 
   getUserPages = async (accessToken) => {
     try {
+      logger.info("Fetching user pages");
       const res = await axios.get(
         "https://graph.facebook.com/v18.0/me/accounts",
         {
@@ -118,15 +180,23 @@ class FacebookBusinessService {
           },
         }
       );
-      return res.data.data || [];
+
+      const pages = res.data.data || [];
+      logger.info(`Fetched ${pages.length} pages`);
+      return pages;
     } catch (error) {
-      logger.error("Failed to fetch user pages:", error);
+      logger.error("Failed to fetch user pages:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       throw error;
     }
   };
 
   getUserAdAccounts = async (accessToken) => {
     try {
+      logger.info("Fetching user ad accounts");
       const res = await axios.get(
         "https://graph.facebook.com/v18.0/me/adaccounts",
         {
@@ -137,15 +207,24 @@ class FacebookBusinessService {
           },
         }
       );
-      return res.data.data || [];
+
+      const accounts = res.data.data || [];
+      logger.info(`Fetched ${accounts.length} ad accounts`);
+      return accounts;
     } catch (error) {
-      logger.error("Failed to fetch ad accounts:", error);
+      logger.error("Failed to fetch ad accounts:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       throw error;
     }
   };
 
   saveUserPages = async (userId, metaAppId, pages) => {
     const saved = [];
+    logger.info(`Saving ${pages.length} pages for user ${userId}`);
+
     for (const p of pages) {
       try {
         const [row, created] = await FacebookPage.findOrCreate({
@@ -164,6 +243,7 @@ class FacebookBusinessService {
             lastSyncAt: new Date(),
           },
         });
+
         if (!created) {
           await row.update({
             pageName: p.name,
@@ -172,19 +252,31 @@ class FacebookBusinessService {
             pageUrl: p.link,
             fanCount: p.fan_count || 0,
             permissions: p.permissions || [],
+            isActive: true, // Reactivate if previously deactivated
             lastSyncAt: new Date(),
           });
         }
+
         saved.push(row);
+        logger.info(
+          `${created ? "Created" : "Updated"} page: ${p.name} (${p.id})`
+        );
       } catch (e) {
-        logger.error(`Failed to save page ${p.id}:`, e);
+        logger.error(`Failed to save page ${p.id}:`, {
+          error: e.message,
+          pageData: { id: p.id, name: p.name },
+        });
       }
     }
+
+    logger.info(`Successfully saved ${saved.length} pages`);
     return saved;
   };
 
   saveUserAdAccounts = async (userId, metaAppId, adAccounts) => {
     const saved = [];
+    logger.info(`Saving ${adAccounts.length} ad accounts for user ${userId}`);
+
     for (const a of adAccounts) {
       try {
         const expiresAt = new Date(Date.now() + 60 * 24 * 3600 * 1000);
@@ -199,7 +291,7 @@ class FacebookBusinessService {
             metaAppId,
             accountId: a.account_id,
             accountName: a.name,
-            accessToken: "placeholder",
+            accessToken: "placeholder", // You might want to store the actual token
             tokenExpiresAt: expiresAt,
             accountStatus: a.account_status,
             currency: a.currency,
@@ -209,6 +301,7 @@ class FacebookBusinessService {
             isActive: true,
           },
         });
+
         if (!created) {
           await row.update({
             accountName: a.name,
@@ -217,14 +310,26 @@ class FacebookBusinessService {
             timezone: a.timezone_name,
             businessId: a.business?.id,
             permissions: a.capabilities || [],
+            isActive: true, // Reactivate if previously deactivated
             lastSyncAt: new Date(),
           });
         }
+
         saved.push(row);
+        logger.info(
+          `${created ? "Created" : "Updated"} ad account: ${a.name} (${
+            a.account_id
+          })`
+        );
       } catch (e) {
-        logger.error(`Failed to save ad account ${a.account_id}:`, e);
+        logger.error(`Failed to save ad account ${a.account_id}:`, {
+          error: e.message,
+          accountData: { id: a.account_id, name: a.name },
+        });
       }
     }
+
+    logger.info(`Successfully saved ${saved.length} ad accounts`);
     return saved;
   };
 
@@ -239,6 +344,15 @@ class FacebookBusinessService {
         .toISOString()
         .split("T")[0];
       const until = new Date().toISOString().split("T")[0];
+
+      logger.info("Fetching page insights", {
+        pageId,
+        metrics,
+        period,
+        since,
+        until,
+      });
+
       const res = await axios.get(
         `https://graph.facebook.com/v18.0/${pageId}/insights`,
         {
@@ -251,9 +365,14 @@ class FacebookBusinessService {
           },
         }
       );
+
       return res.data.data || [];
     } catch (error) {
-      logger.error("Failed to fetch page insights:", error);
+      logger.error("Failed to fetch page insights:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       throw error;
     }
   };
@@ -267,22 +386,38 @@ class FacebookBusinessService {
     try {
       const payload = { access_token: pageAccessToken, message };
       if (imageUrl) payload.picture = imageUrl;
+
+      logger.info("Creating page post", {
+        pageId,
+        hasImage: !!imageUrl,
+        messageLength: message?.length,
+      });
+
       const res = await axios.post(
         `https://graph.facebook.com/v18.0/${pageId}/feed`,
         payload
       );
+
+      logger.info("Page post created successfully", { postId: res.data.id });
       return res.data;
     } catch (error) {
-      logger.error("Failed to create page post:", error);
+      logger.error("Failed to create page post:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       throw error;
     }
   };
 
   syncUserData = async (userId, metaAppId) => {
     try {
-      // if metaAppId is static, pass FB.META_APP_DB_ID from controller
+      logger.info("Starting user data sync", { userId, metaAppId });
+
       const where = { userId, isActive: true, ...(metaAppId && { metaAppId }) };
       const pages = await FacebookPage.findAll({ where });
+
+      logger.info(`Found ${pages.length} pages to sync`);
 
       const results = await Promise.allSettled(
         pages.map(async (page) => {
@@ -296,6 +431,7 @@ class FacebookBusinessService {
                 },
               }
             );
+
             await page.update({
               pageName: res.data.name,
               pageCategory: res.data.category,
@@ -303,17 +439,27 @@ class FacebookBusinessService {
               fanCount: res.data.fan_count || 0,
               lastSyncAt: new Date(),
             });
+
+            logger.info(`Synced page: ${page.pageName} (${page.pageId})`);
             return page;
           } catch (e) {
-            logger.error(`Failed to sync page ${page.pageId}:`, e);
+            logger.error(`Failed to sync page ${page.pageId}:`, {
+              error: e.message,
+              status: e.response?.status,
+            });
             return null;
           }
         })
       );
 
-      return results
+      const syncedPages = results
         .filter((r) => r.status === "fulfilled" && r.value)
         .map((r) => r.value);
+
+      logger.info(
+        `Sync completed: ${syncedPages.length}/${pages.length} pages synced`
+      );
+      return syncedPages;
     } catch (error) {
       logger.error("Failed to sync user data:", error);
       throw error;
