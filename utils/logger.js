@@ -1,25 +1,41 @@
+// utils/logger.js
 const winston = require("winston");
+const { format, transports } = winston;
+
+const isProd = process.env.NODE_ENV === "production";
+const enableFileLogs = !!process.env.ENABLE_FILE_LOGS; // opt-in for local
+
+const consoleTransport = new transports.Console({
+  stderrLevels: ["error"], // errors to STDERR
+  format: isProd
+    ? format.json() // structured in prod
+    : format.combine(format.colorize(), format.simple()),
+});
+
+const fileTransports = enableFileLogs
+  ? [
+      new transports.File({ filename: "error.log", level: "error" }),
+      new transports.File({ filename: "combined.log" }),
+    ]
+  : [];
 
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
+  format: format.combine(
+    format.timestamp(),
+    format.errors({ stack: true }),
+    format.json()
   ),
-  defaultMeta: { service: "jetsy-meta-ads" },
-  transports: [
-    new winston.transports.File({ filename: "error.log", level: "error" }),
-    new winston.transports.File({ filename: "combined.log" }),
-  ],
+  defaultMeta: { service: "jetsy-meta-ads", env: process.env.NODE_ENV },
+  transports: [consoleTransport, ...fileTransports],
+  exceptionHandlers: [consoleTransport],
+  rejectionHandlers: [consoleTransport],
+  exitOnError: false,
 });
 
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.simple(),
-    })
-  );
-}
+// Optional: integrate with morgan HTTP logs
+logger.stream = {
+  write: (message) => logger.info(message.trim()),
+};
 
 module.exports = logger;
