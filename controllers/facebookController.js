@@ -36,16 +36,14 @@ class FacebookController {
           `${process.env.CLIENT_URL}/dashboard?error=oauth_error`
         );
       }
-
       if (!code || !state) {
         return res.redirect(
           `${process.env.CLIENT_URL}/dashboard?error=invalid_request`
         );
       }
 
-      // Add detailed logging for debugging
       logger.info("Facebook callback received:", {
-        code: code.substring(0, 20) + "...", // Log partial code for security
+        code: code.substring(0, 20) + "...",
         state: state.substring(0, 50) + "...",
         fullUrl: req.originalUrl,
       });
@@ -86,13 +84,15 @@ class FacebookController {
     try {
       const pages = await FacebookPage.findAll({
         where: { userId: req.user.id, isActive: true },
-        // FIXED: Removed the extra comma and quotes around appName
         include: [{ model: MetaApp, attributes: ["id", "appName", "appId"] }],
         order: [["createdAt", "DESC"]],
       });
       res.json({ pages });
     } catch (error) {
-      logger.error("Get connected pages error:", { message: error.message });
+      logger.error("Get connected pages error:", {
+        message: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Failed to fetch connected pages" });
     }
   };
@@ -186,7 +186,10 @@ class FacebookController {
       await page.update({ isActive: false });
       res.json({ message: "Page disconnected successfully" });
     } catch (error) {
-      logger.error("Disconnect page error:", { message: error.message });
+      logger.error("Disconnect page error:", {
+        message: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Failed to disconnect page" });
     }
   };
