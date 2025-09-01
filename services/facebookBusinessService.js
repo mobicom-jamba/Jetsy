@@ -197,20 +197,85 @@ class FacebookBusinessService {
   getUserAdAccounts = async (accessToken) => {
     try {
       logger.info("Fetching user ad accounts");
-      const res = await axios.get(
-        "https://graph.facebook.com/v18.0/me/adaccounts",
+
+      // First, get the user's businesses
+      const businessesRes = await axios.get(
+        "https://graph.facebook.com/v18.0/me/businesses",
         {
           params: {
             access_token: accessToken,
-            fields:
-              "id,name,account_id,account_status,business,currency,timezone_name,amount_spent,balance,capabilities",
+            fields: "id,name",
           },
         }
       );
 
-      const accounts = res.data.data || [];
-      logger.info(`Fetched ${accounts.length} ad accounts`);
-      return accounts;
+      const businesses = businessesRes.data.data || [];
+      logger.info(`Found ${businesses.length} businesses`);
+
+      let allAdAccounts = [];
+
+      if (businesses.length > 0) {
+        for (const business of businesses) {
+          try {
+            const adAccountsRes = await axios.get(
+              `https://graph.facebook.com/v18.0/${business.id}/owned_ad_accounts`,
+              {
+                params: {
+                  access_token: accessToken,
+                  fields:
+                    "id,name,account_id,account_status,business,currency,timezone_name,amount_spent,balance,capabilities",
+                },
+              }
+            );
+
+            const businessAdAccounts = adAccountsRes.data.data || [];
+            allAdAccounts = allAdAccounts.concat(businessAdAccounts);
+            logger.info(
+              `Found ${businessAdAccounts.length} ad accounts for business ${business.name}`
+            );
+          } catch (businessError) {
+            logger.warn(
+              `Failed to fetch ad accounts for business ${business.id}:`,
+              {
+                message: businessError.message,
+                status: businessError.response?.status,
+              }
+            );
+          }
+        }
+      }
+
+      // Also try the direct approach for personal ad accounts
+      try {
+        const personalRes = await axios.get(
+          "https://graph.facebook.com/v18.0/me/adaccounts",
+          {
+            params: {
+              access_token: accessToken,
+              fields:
+                "id,name,account_id,account_status,business,currency,timezone_name,amount_spent,balance,capabilities",
+            },
+          }
+        );
+
+        const personalAccounts = personalRes.data.data || [];
+        logger.info(`Found ${personalAccounts.length} personal ad accounts`);
+
+        // Merge and deduplicate
+        const existingIds = new Set(allAdAccounts.map((acc) => acc.account_id));
+        const newAccounts = personalAccounts.filter(
+          (acc) => !existingIds.has(acc.account_id)
+        );
+        allAdAccounts = allAdAccounts.concat(newAccounts);
+      } catch (personalError) {
+        logger.warn("Failed to fetch personal ad accounts:", {
+          message: personalError.message,
+          status: personalError.response?.status,
+        });
+      }
+
+      logger.info(`Total fetched ${allAdAccounts.length} unique ad accounts`);
+      return allAdAccounts;
     } catch (error) {
       logger.error("Failed to fetch ad accounts:", {
         message: error.message,
