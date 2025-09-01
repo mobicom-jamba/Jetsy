@@ -1,55 +1,58 @@
-// server/models/index.js (UPDATED)
-const { Sequelize } = require('sequelize');
-const config = require('../config/database')[process.env.NODE_ENV || 'development'];
+// models/index.js
+"use strict";
+const { Sequelize, DataTypes } = require("sequelize");
+const config =
+  require("../config/database")[process.env.NODE_ENV || "development"];
 
-let sequelize;
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(config.database, config.username, config.password, config);
-}
+const sequelize = config.use_env_variable
+  ? new Sequelize(process.env[config.use_env_variable], config)
+  : new Sequelize(config.database, config.username, config.password, config);
 
-const User = require('./User')(sequelize);
-const MetaApp = require('./MetaApp')(sequelize);
-const MetaAccount = require('./MetaAccount')(sequelize);
-const Campaign = require('./Campaign')(sequelize);
-const AdSet = require('./AdSet')(sequelize);
-const Ad = require('./Ad')(sequelize);
-const Metrics = require('./Metrics')(sequelize);
+const db = {};
 
-// Define associations
-User.hasMany(MetaApp, { foreignKey: 'userId' });
-MetaApp.belongsTo(User, { foreignKey: 'userId' });
+// Load all models (case-sensitive on Linux!)
+db.User = require("./User")(sequelize, DataTypes);
+db.MetaApp = require("./MetaApp")(sequelize, DataTypes);
+db.MetaAccount = require("./MetaAccount")(sequelize, DataTypes);
+db.Campaign = require("./Campaign")(sequelize, DataTypes);
+db.AdSet = require("./AdSet")(sequelize, DataTypes);
+db.Ad = require("./Ad")(sequelize, DataTypes);
+db.Metrics = require("./Metrics")(sequelize, DataTypes);
+db.FacebookPage = require("./FacebookPage")(sequelize, DataTypes); // <-- ADD THIS
 
-User.hasMany(MetaAccount, { foreignKey: 'userId' });
-MetaAccount.belongsTo(User, { foreignKey: 'userId' });
+// Associations
+db.User.hasMany(db.MetaApp, { foreignKey: "userId" });
+db.MetaApp.belongsTo(db.User, { foreignKey: "userId" });
 
-MetaApp.hasMany(MetaAccount, { foreignKey: 'metaAppId' });
-MetaAccount.belongsTo(MetaApp, { foreignKey: 'metaAppId' });
+db.User.hasMany(db.MetaAccount, { foreignKey: "userId" });
+db.MetaAccount.belongsTo(db.User, { foreignKey: "userId" });
 
-User.hasMany(Campaign, { foreignKey: 'userId' });
-Campaign.belongsTo(User, { foreignKey: 'userId' });
+db.MetaApp.hasMany(db.MetaAccount, { foreignKey: "metaAppId" });
+db.MetaAccount.belongsTo(db.MetaApp, { foreignKey: "metaAppId" });
 
-MetaAccount.hasMany(Campaign, { foreignKey: 'metaAccountId' });
-Campaign.belongsTo(MetaAccount, { foreignKey: 'metaAccountId' });
+db.User.hasMany(db.Campaign, { foreignKey: "userId" });
+db.Campaign.belongsTo(db.User, { foreignKey: "userId" });
 
-Campaign.hasMany(AdSet, { foreignKey: 'campaignId' });
-AdSet.belongsTo(Campaign, { foreignKey: 'campaignId' });
+db.MetaAccount.hasMany(db.Campaign, { foreignKey: "metaAccountId" });
+db.Campaign.belongsTo(db.MetaAccount, { foreignKey: "metaAccountId" });
 
-AdSet.hasMany(Ad, { foreignKey: 'adSetId' });
-Ad.belongsTo(AdSet, { foreignKey: 'adSetId' });
+db.Campaign.hasMany(db.AdSet, { foreignKey: "campaignId" });
+db.AdSet.belongsTo(db.Campaign, { foreignKey: "campaignId" });
 
-Campaign.hasMany(Metrics, { foreignKey: 'campaignId' });
-Metrics.belongsTo(Campaign, { foreignKey: 'campaignId' });
+db.AdSet.hasMany(db.Ad, { foreignKey: "adSetId" });
+db.Ad.belongsTo(db.AdSet, { foreignKey: "adSetId" });
 
-module.exports = {
-  sequelize,
-  Sequelize,
-  User,
-  MetaApp,
-  MetaAccount,
-  Campaign,
-  AdSet,
-  Ad,
-  Metrics
-};
+db.Campaign.hasMany(db.Metrics, { foreignKey: "campaignId" });
+db.Metrics.belongsTo(db.Campaign, { foreignKey: "campaignId" });
+
+// NEW: FacebookPage associations
+db.FacebookPage.belongsTo(db.User, { foreignKey: "userId" });
+db.User.hasMany(db.FacebookPage, { foreignKey: "userId" });
+
+db.FacebookPage.belongsTo(db.MetaApp, { foreignKey: "metaAppId" });
+db.MetaApp.hasMany(db.FacebookPage, { foreignKey: "metaAppId" });
+
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+module.exports = db;

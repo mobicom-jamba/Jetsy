@@ -1,4 +1,4 @@
-module.exports = (sequelize) => {
+module.exports = (sequelize, DataTypes) => {
   const FacebookPage = sequelize.define(
     "FacebookPage",
     {
