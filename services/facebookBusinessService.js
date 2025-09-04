@@ -22,6 +22,7 @@ class FacebookBusinessService {
         config_id: FB.CONFIG_ID,
         redirect_uri: FB.REDIRECT_URI,
         state: encodedState,
+        scope: "ads_read,ads_management,read_insights,business_management",
         response_type: "code",
       });
 
@@ -71,7 +72,7 @@ class FacebookBusinessService {
       // Exchange short-lived token
       logger.info("Exchanging code for access token");
       const tokenRes = await axios.get(
-        "https://graph.facebook.com/v18.0/oauth/access_token",
+        "https://graph.facebook.com/v23.0/oauth/access_token",
         {
           params: {
             client_id: FB.APP_ID,
@@ -93,7 +94,7 @@ class FacebookBusinessService {
       // Exchange for long-lived token
       logger.info("Exchanging for long-lived token");
       const longRes = await axios.get(
-        "https://graph.facebook.com/v18.0/oauth/access_token",
+        "https://graph.facebook.com/v23.0/oauth/access_token",
         {
           params: {
             grant_type: "fb_exchange_token",
@@ -172,7 +173,7 @@ class FacebookBusinessService {
     try {
       logger.info("Fetching user pages");
       const res = await axios.get(
-        "https://graph.facebook.com/v18.0/me/accounts",
+        "https://graph.facebook.com/v23.0/me/accounts",
         {
           params: {
             access_token: accessToken,
@@ -200,7 +201,7 @@ class FacebookBusinessService {
 
       // First, get the user's businesses
       const businessesRes = await axios.get(
-        "https://graph.facebook.com/v18.0/me/businesses",
+        "https://graph.facebook.com/v23.0/me/businesses",
         {
           params: {
             access_token: accessToken,
@@ -218,7 +219,7 @@ class FacebookBusinessService {
         for (const business of businesses) {
           try {
             const adAccountsRes = await axios.get(
-              `https://graph.facebook.com/v18.0/${business.id}/owned_ad_accounts`,
+              `https://graph.facebook.com/v23.0/${business.id}/owned_ad_accounts`,
               {
                 params: {
                   access_token: accessToken,
@@ -245,10 +246,9 @@ class FacebookBusinessService {
         }
       }
 
-      // Also try the direct approach for personal ad accounts
       try {
         const personalRes = await axios.get(
-          "https://graph.facebook.com/v18.0/me/adaccounts",
+          "https://graph.facebook.com/v23.0/me/adaccounts",
           {
             params: {
               access_token: accessToken,
@@ -419,7 +419,7 @@ class FacebookBusinessService {
       });
 
       const res = await axios.get(
-        `https://graph.facebook.com/v18.0/${pageId}/insights`,
+        `https://graph.facebook.com/v23.0/${pageId}/insights`,
         {
           params: {
             access_token: accessToken,
@@ -459,7 +459,7 @@ class FacebookBusinessService {
       });
 
       const res = await axios.post(
-        `https://graph.facebook.com/v18.0/${pageId}/feed`,
+        `https://graph.facebook.com/v23.0/${pageId}/feed`,
         payload
       );
 
@@ -488,7 +488,7 @@ class FacebookBusinessService {
         pages.map(async (page) => {
           try {
             const res = await axios.get(
-              `https://graph.facebook.com/v18.0/${page.pageId}`,
+              `https://graph.facebook.com/v23.0/${page.pageId}`,
               {
                 params: {
                   access_token: page.pageAccessToken,
